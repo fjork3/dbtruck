@@ -34,7 +34,7 @@ class PGMethods(BaseMethods):
 
         self.dbname = kwargs['dbname']
         self.hostname = kwargs.get('hostname', 'localhost')
-        self.username = kwargs.get('user', '')
+        self.username = kwargs.get('username', '')
         self.password = kwargs.get('password', None)
         self.port = kwargs.get('port', 0)
 

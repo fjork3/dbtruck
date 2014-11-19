@@ -47,7 +47,7 @@ class GlobalLogger(object):
             fh.set_name('filehandler')
             self._logger.addHandler(fh)
         except:
-          pass
+            print "Could not create FileHandler for", fname
 
         ph = logging.StreamHandler(sys.stdout)
         ph.setLevel(plevel)
