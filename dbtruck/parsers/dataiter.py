@@ -10,6 +10,7 @@ re_nonascii = re.compile('[^\w\s]')
 re_nonasciistart = re.compile('^[^\w]')
 _log = get_logger()
 
+
 class DataIterator(object):
     def __init__(self, iter_func, **kwargs):
         self.iter_func = iter_func
@@ -22,15 +23,14 @@ class DataIterator(object):
         # Add any kwargs as class attribues
         self.__dict__.update(kwargs)
 
-
     def infer_metadata(self):
         if not self.types:
             # infer_col_types from infertypes.py
             self.types = infer_col_types(self)
 
         self.infer_header()
-        _log.info( 'types:\t%s', ' '.join(map(str, self.types)) )
-        _log.info( 'headers:\t%s', ' '.join(self.header))        
+        _log.info('types:\t%s', ' '.join(map(str, self.types)))
+        _log.info('headers:\t%s', ' '.join(self.header))
 
     def infer_header(self):
         """
@@ -68,12 +68,11 @@ class DataIterator(object):
             self.add_id_col = True
             self.types.append(int)
 
-
     def infer_header_row(self):
         "analyze first row in iterator and check if it looks like a header"
 
         types = self.types
-        
+
         # TODO: does this need to be in a try/except? If so can it be a less general except?
         try:
             header = self().next()
@@ -86,7 +85,7 @@ class DataIterator(object):
             _log.info("matches: %s", matches)
 
             if matches > 0:
-                return 
+                return
 
             if max(map(len, header)) > 100:
                 _.log.warn("header colname longer than 100: %s", max(map(len, header)))
@@ -139,7 +138,6 @@ class DataIterator(object):
         else:
             self.header = newheader
 
-
     def validate_header(self):
         """Check that the length of the header matches the most common row length.
         If the header is invalid, sets self.header to None."""
@@ -157,9 +155,8 @@ class DataIterator(object):
                     self.header = None
                     _log.info("""invalidating self.header because length %d doesn't
                                  match most popular row length %d""",
-                                 len(self.header),
-                                 ncols)
-        
+                              len(self.header),
+                              ncols)
 
     def __call__(self):
         return self.iter_func()
