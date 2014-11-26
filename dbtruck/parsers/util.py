@@ -20,12 +20,13 @@ _log = get_logger()
 
 
 def rows_consistent(iter):
+    """Checks that >98% of the rows have the same number of columns
+    @return (isconsistent, number of columns)"""
     lens = get_row_counts(iter)
     if not lens:
         return False, 0
     maj = lens.most_common(1)[0][1]
     tot = sum(lens.values())
-    return float(maj) / tot, lens.most_common(1)[0][0]
     return float(maj)/tot >= 0.98, lens.most_common(1)[0][0]
 
 def html_rows_consistent(iter):
@@ -51,8 +52,7 @@ def excel_rows_consistent(iter):
 def get_row_counts(iter):
     """
     iterates through first 10k rows in iterator and records the number of
-    columns in each row.  Checks that >98% of the rows have the same number of columns
-    @return (isconsistent, number of columns)
+    columns in each row.
     """
     try:
         idx = 0
@@ -103,6 +103,7 @@ def is_url(fname, **kwargs):
         return True
 
 def is_url_file(fname, **kwargs):
+    """Check that every line of a file has the form of a url."""
     try:
         with file(fname, 'r') as f:
             for line in f:
@@ -124,6 +125,7 @@ def is_html_file(fname, **kwargs):
         return False
     try:
         size = os.path.getsize(fname)
+        # TODO: wat
         if size > 1048576 * 4:
             return False
         with file(fname, 'r') as f:

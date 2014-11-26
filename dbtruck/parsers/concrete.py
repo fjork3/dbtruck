@@ -26,8 +26,10 @@ from dbtruck.parsers.util import *
 
 _log = get_logger()
 
+# parent parser class
 class Parser(object):
     def __init__(self, f, fname, **kwargs):
+        # I'm guessing f is a file object and fname is its name
         self.f = f
         self.fname = fname
 
@@ -45,6 +47,7 @@ class CSVFileParser(Parser):
         # return a function that returns iter
         self.f.seek(0)
         if self.dialect is None:
+            # sniff takes a sample of the file, obtained by reading from f
           self.dialect = dialect = csv.Sniffer().sniff(self.f.read(15000))
           self.f.seek(0)
 
@@ -76,6 +79,7 @@ class CSVFileParser(Parser):
 
 class OffsetFileParser(Parser):
     def __init__(self, f, fname, **kwargs):
+        # TODO if offset is not in kwargs this breaks
         if 'offset' not in kwargs:
             s = ''#raw_input('can you give me the offsets to split each row? (otherwise, just press <enter>)\n> ').strip()
             offsets = self.parse_offset_str(s)
@@ -89,6 +93,7 @@ class OffsetFileParser(Parser):
 
     def parse_offset_str(self, s):
         """
+        parse a string that gives offsets
         look for groups of numbers (offsets) delimited by non a-z characters
         """
         if not s:
@@ -114,6 +119,7 @@ class OffsetFileParser(Parser):
     
     def get_data_iter(self):
         offpairs = zip(self.offsets[:-1], self.offsets[1:])
+        # generator that breaks each line into segments according to self.offsets
         def _f():
             self.f.seek(0)
             for line in self.f:
@@ -126,12 +132,15 @@ class InferOffsetFileParser(OffsetFileParser):
     Parser.__init__(self, f, fname, **kwargs)
 
     self.offsets = self.infer_offsets()
+    # TODO raise better error
     if not self.offsets:
       raise RuntimeError
 
     _log.info("inferoffset got offsets: %s", self.offsets)
 
   def remove_nonascii(self, l):
+    # TODO: why does this need two lines, why not one regex with both the beginning and
+    # end of a line?
     l = re.sub("^[^\x00-\x7F]+", "", l)
     l = re.sub("[^\x00-\x7F]+$", "", l)
     return l
@@ -145,6 +154,7 @@ class InferOffsetFileParser(OffsetFileParser):
     get_start_idxs = lambda l: [i.start() for i in re.finditer("[^\s]+", l)]
 
     startIdxs = get_start_idxs(l)
+    # Counter is from the collections module
     candidates = Counter(startIdxs)
     _log.info("inferoffset candidates: %s", sorted(candidates.keys()))
 
@@ -183,6 +193,7 @@ class InferOffsetFileParser(OffsetFileParser):
     return DataIterator(_f, fname=self.fname)
 
 
+# parses files with only one column
 class SingleColumnParser(Parser):
     def get_data_iter(self):
         def _f():
@@ -193,6 +204,11 @@ class SingleColumnParser(Parser):
 
 
 class JSONParser(Parser):
+    """Assumes that JSON file is either
+        1) a list of dictionaries
+        2) a dictionary with an entry that contains a list of dictionaries
+           and finds the longest list 
+    """
 
     def list_is_consistent(self, l):
         if len(l) == 0:
@@ -214,23 +230,26 @@ class JSONParser(Parser):
         return [o]
 
     def list_of_dict_iterator(self, l):
+        # TODO: this seems to remove duplicates. There's probably a better way to do this
         keys = set()
         for d in l:
             keys.update(d.keys())
         keys = list(keys)
 
+        # generator to pass into DataIterator
         def _f():
             for d in l:
                 yield [d.get(key, '')  for key in keys]
         return DataIterator(_f, header=keys, fname=self.fname)
 
     def get_data_iter(self):
-        """This methad assumes that JSON file is either
+        """This method assumes that JSON file is either
         1) a list of dictionaries
         2) a dictionary with an entry that contains a list of dictionaries
            and finds the longest list
         
         """
+        # TODO: why does it need to do that?
         
         self.f.seek(0)
         dec = json.JSONDecoder('utf-8', strict=False)
@@ -268,8 +287,7 @@ class ExcelParser(Parser):
             raise "ExcelParser expects a sheet"
     
     def get_data_iter(self):
-        # if first row with data has style and non of the other rows have style
-        # then it's a header row
+        # rows is a dict
         rows = self.s.rows
         if len(rows) <= 1:
             return None
@@ -282,7 +300,9 @@ class ExcelParser(Parser):
                 break
             idx += 1
         rows = rows[idx:]
-        
+
+        # if first row with data has style and non of the other rows have style
+        # then it's a header row
         header = None        
         if sum(1 for c in rows[0] if c.has_style) > 0.8 * len(rows[0]):
             header = [c.value for c in rows[0]]
@@ -302,8 +322,7 @@ class OldExcelParser(Parser):
             raise "ExcelParser expects a sheet"
     
     def get_data_iter(self):
-        # if first row with data has style and non of the other rows have style
-        # then it's a header row
+        # No header in this type
         sheet = self.s
         nrows = sheet.nrows
         rows = [sheet.row(i) for i in xrange(nrows)]
@@ -322,11 +341,6 @@ class OldExcelParser(Parser):
             idx += 1
         rows = rows[idx:]
         
-        # header = None        
-        # if sum(1 for c in rows[0] if c.) > 0.8 * len(rows[0]):
-        #     header = [c.value for c in rows[0]]
-        #     rows = rows[1:]
-        
         rows = [[to_utf(c.value) for c in r] for r in rows]            
 
         return DataIterator(lambda: iter(rows), fname=self.fname)
@@ -335,7 +349,7 @@ class OldExcelParser(Parser):
 
 class HTMLTableParser(Parser):
     """
-    Takes a <table> element and constructs an 
+    Takes a <table> element and constructs a table
 
     looks for tables that are of the form
     table
@@ -363,7 +377,7 @@ class HTMLTableParser(Parser):
         counter = Counter()
         headers = []
         bheaders = True
-        trs = table('tr')        
+        trs = table('tr')
         for tr_el in trs:
             tr = PyQuery(tr_el)
 

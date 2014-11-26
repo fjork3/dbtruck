@@ -35,7 +35,7 @@ class PGMethods(BaseMethods):
         self.dbname = kwargs['dbname']
         self.hostname = kwargs.get('hostname', 'localhost')
         self.username = kwargs.get('username', '')
-        self.password = kwargs.get('password', None)
+        self.password = kwargs.get('password', 'foobar')  # user-set inside psql
         self.port = kwargs.get('port', 0)
 
         self.dburi = kwargs.get('uri', None)
