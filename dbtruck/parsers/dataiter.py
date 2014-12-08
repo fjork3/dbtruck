@@ -10,6 +10,7 @@ re_nonascii = re.compile('[^\w\s]')
 re_nonasciistart = re.compile('^[^\w]')
 _log = get_logger()
 
+
 class DataIterator(object):
     def __init__(self, iter_func, **kwargs):
         self.iter_func = iter_func
@@ -19,16 +20,17 @@ class DataIterator(object):
         self.header_inferred = False
         self.add_id_col = False
         self.types = None
+        # Add any kwargs as class attribues
         self.__dict__.update(kwargs)
-
 
     def infer_metadata(self):
         if not self.types:
+            # infer_col_types from infertypes.py
             self.types = infer_col_types(self)
 
         self.infer_header()
-        _log.info( 'types:\t%s', ' '.join(map(str, self.types)) )
-        _log.info( 'headers:\t%s', ' '.join(self.header))        
+        _log.info('types:\t%s', ' '.join(map(str, self.types)))
+        _log.info('headers:\t%s', ' '.join(self.header))
 
     def infer_header(self):
         """
@@ -57,8 +59,8 @@ class DataIterator(object):
             for i in xrange(len(self.types) - len(self.header)):
                 self.header.append('attr%d' % i)
 
+        # trim extra columns
         self.header = self.header[:len(self.types)]
-
 
         # we _always_ need an ID column
         if 'id' not in self.header:
@@ -66,36 +68,41 @@ class DataIterator(object):
             self.add_id_col = True
             self.types.append(int)
 
-
     def infer_header_row(self):
         "analyze first row in iterator and check if it looks like a header"
 
         types = self.types
-        
+
+        # TODO: does this need to be in a try/except? If so can it be a less general except?
         try:
             header = self().next()
             header = [s.strip() for s in header]
             _log.info("checking header: %s", header)
             htypes = map(get_type, header)
-            matches = sum([ht == t and ht != None and t != str for ht, t in zip(htypes, types)])
+            # Compare the types of header columns and self.types, record the number of matches
+            matches = sum([(ht == t) and (ht is not None) and (t != str)
+                           for ht, t in zip(htypes, types)])
             _log.info("matches: %s", matches)
 
             if matches > 0:
-                return 
+                return
 
             if max(map(len, header)) > 100:
                 _.log.warn("header colname longer than 100: %s", max(map(len, header)))
-                return 
+                return
 
+            # TODO more analysis?
             # lots of more complex analysis goes HERE
             self.header = header
             self.header_inferred = True
         except:
             return
 
-
-
     def clean_header(self):
+        """Remove non-ascii values from the header, fill in any gaps with generic
+        attribute names, and rename duplicate attributes. Fails if the same attribute
+        is present more than three times."""
+
         header = self.header
         if not header:
             return
@@ -124,17 +131,20 @@ class DataIterator(object):
                 newheader.append(ret)
             timesseen[ret] += 1
 
-        # XXX: ensure that header doesn't have overlapping values
+        # ensure that header doesn't have overlapping values
         if len(set(newheader)) < len(newheader):
             _log.info("duplicate elements in header\t%s", str(newheader))
             self.header = None
         else:
             self.header = newheader
 
-
     def validate_header(self):
+        """Check that the length of the header matches the most common row length.
+        If the header is invalid, sets self.header to None."""
         if self.header:
             c = Counter()
+            # __call__ is defined below, so self() returns self.iter_func()
+            # count the length of the first thousand rows
             for idx, row in enumerate(self()):
                 c[len(row)] += 1
                 if idx > 1000:
@@ -145,9 +155,8 @@ class DataIterator(object):
                     self.header = None
                     _log.info("""invalidating self.header because length %d doesn't
                                  match most popular row length %d""",
-                                 len(self.header),
-                                 ncols)
-        
+                              len(self.header),
+                              ncols)
 
     def __call__(self):
         return self.iter_func()

@@ -37,6 +37,7 @@ class PGMethods(BaseMethods):
         self.hostname = kwargs.get('hostname', 'localhost')
         self.username = kwargs.get('username', '')
         self.password = kwargs.get('password', 'postgres')
+
         self.port = kwargs.get('port', 0)
 
         self.dburi = kwargs.get('uri', None)

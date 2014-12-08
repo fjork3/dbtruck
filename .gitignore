@@ -1,1 +1,5 @@
 *.pyc
+build/*
+dbtruck.egg-info/*
+dist/*
+log.txt

@@ -26,8 +26,11 @@ from dbtruck.parsers.util import *
 
 _log = get_logger()
 
+
+# parent parser class
 class Parser(object):
     def __init__(self, f, fname, **kwargs):
+        # I'm guessing f is a file object and fname is its name
         self.f = f
         self.fname = fname
 
@@ -45,15 +48,16 @@ class CSVFileParser(Parser):
         # return a function that returns iter
         self.f.seek(0)
         if self.dialect is None:
-          self.dialect = dialect = csv.Sniffer().sniff(self.f.read(15000))
-          self.f.seek(0)
+            # sniff takes a sample of the file, obtained by reading from f
+            self.dialect = dialect = csv.Sniffer().sniff(self.f.read(15000))
+            self.f.seek(0)
 
         if not self.dialect:
-          raise "Could not parse using CSV"
+            raise "Could not parse using CSV"
 
         def _reader():
-          self.f.seek(0)
-          return csv.reader(self.f, dialect)
+            self.f.seek(0)
+            return csv.reader(self.f, dialect)
         return DataIterator(_reader, fname=self.fname)
 
 
@@ -65,7 +69,7 @@ class CSVFileParser(Parser):
         #     perc_maj, ncols =  rows_consistent(_get_reader(self.f, delim))
         #     _log.debug("csvparser\t'%s'\tperc(%.3f)\tncols(%d)", delim, perc_maj, ncols )
         #     if ((ncols <= bestncols and perc_maj > 1.5 * bestperc) or
-        #         (ncols > bestncols and bestperc - perc_maj < 0.1)):                
+        #         (ncols > bestncols and bestperc - perc_maj < 0.1)):
         #         bestdelim, bestperc, bestncols = delim, perc_maj, ncols
         # if bestncols:
         #     _log.debug("csvparser\tbest delim\t'%s'\tncols(%d)", bestdelim, bestncols )
@@ -73,9 +77,9 @@ class CSVFileParser(Parser):
         # raise "Could not parse using CSV"
 
 
-
 class OffsetFileParser(Parser):
     def __init__(self, f, fname, **kwargs):
+        # TODO if offset is not in kwargs this breaks
         if 'offset' not in kwargs:
             s = ''#raw_input('can you give me the offsets to split each row? (otherwise, just press <enter>)\n> ').strip()
             offsets = self.parse_offset_str(s)
@@ -83,12 +87,13 @@ class OffsetFileParser(Parser):
                 raise RuntimeError
         else:
             offsets = kwargs['offset']
-            
+
         self.offsets = self.normalize_offsets(offsets)
         super(OffsetFileParser, self).__init__(f, fname, **kwargs)
 
     def parse_offset_str(self, s):
         """
+        parse a string that gives offsets
         look for groups of numbers (offsets) delimited by non a-z characters
         """
         if not s:
@@ -99,90 +104,95 @@ class OffsetFileParser(Parser):
         if not delimiter:
             return None
         arr = map(int, s.split(delimiter))
-        
+
         return arr
 
     def normalize_offsets(self, arr):
         # if arr is strictly increasing, then they are absolute offsets
         # otherwise they are relative
-        increasing = reduce(and_, ( arr[i+1]>arr[i] for i in xrange(len(arr)-1)) )
+        increasing = reduce(and_, (arr[i+1] > arr[i] for i in xrange(len(arr)-1)))
         if not increasing:
-            arr = map( lambda i: sum(arr[:i]), range(len(arr)) )
-        _log.debug( "offsetparser\tnormalized offsets: %s", str(arr) )
+            arr = map(lambda i: sum(arr[:i]), range(len(arr)))
+        _log.debug("offsetparser\tnormalized offsets: %s", str(arr))
         return arr
-        
-    
+
     def get_data_iter(self):
         offpairs = zip(self.offsets[:-1], self.offsets[1:])
+
+        # generator that breaks each line into segments according to self.offsets
         def _f():
             self.f.seek(0)
             for line in self.f:
-                arr = [line[s:e] if s < len(line) else '' for s,e in offpairs]
+                arr = [line[s:e] if s < len(line) else '' for (s, e) in offpairs]
                 yield arr
         return DataIterator(_f, fname=self.fname)
 
+
 class InferOffsetFileParser(OffsetFileParser):
-  def __init__(self, f, fname, **kwargs):
-    Parser.__init__(self, f, fname, **kwargs)
+    def __init__(self, f, fname, **kwargs):
+        Parser.__init__(self, f, fname, **kwargs)
 
-    self.offsets = self.infer_offsets()
-    if not self.offsets:
-      raise RuntimeError
+        self.offsets = self.infer_offsets()
+        # TODO raise better error
+        if not self.offsets:
+            raise RuntimeError
 
-    _log.info("inferoffset got offsets: %s", self.offsets)
+        _log.info("inferoffset got offsets: %s", self.offsets)
 
-  def remove_nonascii(self, l):
-    l = re.sub("^[^\x00-\x7F]+", "", l)
-    l = re.sub("[^\x00-\x7F]+$", "", l)
-    return l
+    def remove_nonascii(self, l):
+        # TODO: why does this need two lines, why not one regex with both the beginning and
+        # end of a line?
+        l = re.sub("^[^\x00-\x7F]+", "", l)
+        l = re.sub("[^\x00-\x7F]+$", "", l)
+        return l
+
+    def infer_offsets(self):
+        f = self.f
+        f.seek(0)
+        # remove bad characetrs from the "header" row
+        l = self.remove_nonascii(f.readline())
+        get_start_idxs = lambda l: [i.start() for i in re.finditer("[^\s]+", l)]
+
+        startIdxs = get_start_idxs(l)
+        # Counter is from the collections module
+        candidates = Counter(startIdxs)
+        _log.info("inferoffset candidates: %s", sorted(candidates.keys()))
+
+        # in the first 100 rows, are any of the candidates consistently matched?
+        nlines = 0
+        for l in f:
+            candidates.update(filter(candidates.has_key, get_start_idxs(l)))
+            if nlines >= 100:
+                break
+            nlines += 1
+
+        _log.info("inferoffset nlines: %s", nlines)
+        _log.info("inferoffset counts: %s", sorted(candidates.items()))
+
+        # if there are a set of indexs that are > 99%-1 matched, then they are good offsets
+        offsets = []
+        for idx, count in candidates.iteritems():
+            if count >= math.ceil(nlines * .99) - 1:
+                offsets.append(idx)
+
+        if len(offsets) > 2:
+            return sorted(offsets)
+        return None
+
+    def get_data_iter(self):
+        offpairs = zip(self.offsets[:-1], self.offsets[1:])
+
+        def _f():
+            self.f.seek(0)
+            for idx, line in enumerate(self.f):
+                if idx == 0:
+                    line = self.remove_nonascii(line)
+                arr = [line[s:e] if s < len(line) else '' for (s, e) in offpairs]
+                yield arr
+        return DataIterator(_f, fname=self.fname)
 
 
-  def infer_offsets(self):
-    f = self.f
-    f.seek(0)
-    # remove bad characetrs from the "header" row
-    l = self.remove_nonascii(f.readline())
-    get_start_idxs = lambda l: [i.start() for i in re.finditer("[^\s]+", l)]
-
-    startIdxs = get_start_idxs(l)
-    candidates = Counter(startIdxs)
-    _log.info("inferoffset candidates: %s", sorted(candidates.keys()))
-
-    # in the first 100 rows, are any of the candidates consistently matched?
-    nlines = 0
-    for l in f:
-      candidates.update(filter(candidates.has_key, get_start_idxs(l)))
-      if nlines >= 100:
-        break
-      nlines += 1
-
-    _log.info("inferoffset nlines: %s", nlines)
-    _log.info("inferoffset counts: %s", sorted(candidates.items()))
-
-    # if there are a set of indexs that are > 99%-1 matched, then they are good offsets
-    offsets = []
-    for idx, count in candidates.iteritems():
-      if count >= math.ceil(nlines * .99) - 1:
-        offsets.append(idx)
-
-
-    if len(offsets) > 2:
-      return sorted(offsets)
-    return None
-
-
-  def get_data_iter(self):
-    offpairs = zip(self.offsets[:-1], self.offsets[1:])
-    def _f():
-      self.f.seek(0)
-      for idx, line in enumerate(self.f):
-        if idx == 0:
-          line = self.remove_nonascii(line)
-        arr = [line[s:e] if s < len(line) else '' for s,e in offpairs]
-        yield arr
-    return DataIterator(_f, fname=self.fname)
-
-
+# parses files with only one column
 class SingleColumnParser(Parser):
     def get_data_iter(self):
         def _f():
@@ -193,6 +203,11 @@ class SingleColumnParser(Parser):
 
 
 class JSONParser(Parser):
+    """Assumes that JSON file is either
+        1) a list of dictionaries
+        2) a dictionary with an entry that contains a list of dictionaries
+           and finds the longest list
+    """
 
     def list_is_consistent(self, l):
         if len(l) == 0:
@@ -214,24 +229,26 @@ class JSONParser(Parser):
         return [o]
 
     def list_of_dict_iterator(self, l):
+        # TODO: this seems to remove duplicates. There's probably a better way to do this
         keys = set()
         for d in l:
             keys.update(d.keys())
         keys = list(keys)
 
+        # generator to pass into DataIterator
         def _f():
             for d in l:
-                yield [d.get(key, '')  for key in keys]
+                yield [d.get(key, '') for key in keys]
         return DataIterator(_f, header=keys, fname=self.fname)
 
     def get_data_iter(self):
-        """This methad assumes that JSON file is either
+        """This method assumes that JSON file is either
         1) a list of dictionaries
         2) a dictionary with an entry that contains a list of dictionaries
            and finds the longest list
-        
         """
-        
+
+        # TODO: why does it need to do that?
         self.f.seek(0)
         dec = json.JSONDecoder('utf-8', strict=False)
         obj, extra = dec.raw_decode(self.f.read())
@@ -244,12 +261,12 @@ class JSONParser(Parser):
             bestlist, bestlen = None, 0
             for key, val in obj.iteritems():
                 if (isinstance(val, list) and
-                    len(val) > bestlen and
-                    self.list_is_consistent(val)):
-                    bestlist, bestlen  = val, len(val)
+                        len(val) > bestlen and
+                        self.list_is_consistent(val)):
+                    bestlist, bestlen = val, len(val)
         elif isinstance(obj, list):
             bestlist = obj
-        
+
         if not bestlist:
             return None
 
@@ -259,6 +276,7 @@ class JSONParser(Parser):
             return DataIterator(lambda: bestlist, fname=self.fname)
         raise
 
+
 class ExcelParser(Parser):
     def __init__(self, f, fname, sheet=None, **kwargs):
         # ignore f
@@ -266,14 +284,12 @@ class ExcelParser(Parser):
         self.s = sheet
         if not sheet:
             raise "ExcelParser expects a sheet"
-    
+
     def get_data_iter(self):
-        # if first row with data has style and non of the other rows have style
-        # then it's a header row
+        # rows is a dict
         rows = self.s.rows
         if len(rows) <= 1:
             return None
-
 
         # skip empty rows
         idx = 0
@@ -282,13 +298,15 @@ class ExcelParser(Parser):
                 break
             idx += 1
         rows = rows[idx:]
-        
-        header = None        
+
+        # if first row with data has style and non of the other rows have style
+        # then it's a header row
+        header = None
         if sum(1 for c in rows[0] if c.has_style) > 0.8 * len(rows[0]):
             header = [c.value for c in rows[0]]
             rows = rows[1:]
-        
-        rows = [[c.value for c in r] for r in rows]            
+
+        rows = [[c.value for c in r] for r in rows]
 
         return DataIterator(lambda: iter(rows), header=header, fname=self.fname)
 
@@ -300,16 +318,14 @@ class OldExcelParser(Parser):
         self.s = sheet
         if not sheet:
             raise "ExcelParser expects a sheet"
-    
+
     def get_data_iter(self):
-        # if first row with data has style and non of the other rows have style
-        # then it's a header row
+        # No header in this type
         sheet = self.s
         nrows = sheet.nrows
         rows = [sheet.row(i) for i in xrange(nrows)]
         if len(rows) <= 1:
             return None
-
 
         # skip empty rows
         # empty rows typically have much fewer non-empty columns
@@ -321,21 +337,15 @@ class OldExcelParser(Parser):
                 break
             idx += 1
         rows = rows[idx:]
-        
-        # header = None        
-        # if sum(1 for c in rows[0] if c.) > 0.8 * len(rows[0]):
-        #     header = [c.value for c in rows[0]]
-        #     rows = rows[1:]
-        
-        rows = [[to_utf(c.value) for c in r] for r in rows]            
+
+        rows = [[to_utf(c.value) for c in r] for r in rows]
 
         return DataIterator(lambda: iter(rows), fname=self.fname)
 
 
-
 class HTMLTableParser(Parser):
     """
-    Takes a <table> element and constructs an 
+    Takes a <table> element and constructs a table
 
     looks for tables that are of the form
     table
@@ -363,7 +373,7 @@ class HTMLTableParser(Parser):
         counter = Counter()
         headers = []
         bheaders = True
-        trs = table('tr')        
+        trs = table('tr')
         for tr_el in trs:
             tr = PyQuery(tr_el)
 
@@ -386,4 +396,3 @@ class HTMLTableParser(Parser):
             if headers:
                 header = headers[-1]
         return DataIterator(lambda: iter(rows), header=header, fname=self.fname)
-

@@ -32,23 +32,32 @@ class DBTruckParser(object):
         self.zipdirname = zipdirname
         self.dldirname = dldirname
 
-    def get_reader(self, fname, **kwargs):
-      #if not isinstance(fname, basestring):
-      #  raise Exception("get_reader got list as argument.  expected string: %s" % fname)
-      return self.get_readers(fname, **kwargs)
+    def get_readers(self, fnames, **kwargs):
+        """Return a list of DataIterators."""
 
-    def get_readers(self, fname, **kwargs):
+        # If passed a list or set, get the iterators for all the individual
+        # files
+        if isinstance(fnames, list) or isinstance(fnames, set):
+            return itertools.chain(*map(self.get_reader, fnames))
+        else:
+            readers = self.get_reader(fname, **kwargs)
+            if isinstance(readers, list):
+                return readers
+            else:
+                return [readers]
+
+    def get_reader(self, fname, **kwargs):
         """
-        @return a list of functions that return row iterators.  This is so files such as HTML
-        can return multiple tables to be stored
+        Return one or more DataIterators that iterate over the records in the
+        given file. May return multiple DataIterators since files may contain multiple
+        tables - HTML files, for example. Does not currently check for this, so always
+        returns one DataIterator.
         """
         # XXX: skip binary files that are not supported
         #      http://www.garykessler.net/library/file_sigs.html
         _log.info("processing\t%s", fname)
 
-        if isinstance(fname, list) or isinstance(fname, set):
-            return itertools.chain(*map(self.get_readers, fname))
-        elif is_url(fname):
+        if is_url(fname):
             return self.get_readers_from_url(fname)
         elif is_url_file(fname):
             return self.get_readers_from_url_file(fname, **kwargs)
@@ -58,7 +67,7 @@ class DBTruckParser(object):
             return self.get_readers_from_old_excel_file(fname, **kwargs)
         elif os.path.isdir(fname):
             dataiters = []
-            args = {'kwargs' : kwargs, 'dataiters' : dataiters}
+            args = {'kwargs': kwargs, 'dataiters': dataiters}
             os.path.walk(fname, self.get_readers_walk_cb, args)
             return dataiters
         elif zipfile.is_zipfile(fname):
@@ -81,12 +90,8 @@ class DBTruckParser(object):
                     dataiter.file_index = len(dataiters)
                     dataiters.append(dataiter)
 
-
-
-
-                    
     def get_readers_from_text_file(self, fname, **kwargs):
-        text_parsers = [CSVFileParser, JSONParser, InferOffsetFileParser]        
+        text_parsers = [CSVFileParser, JSONParser, InferOffsetFileParser]
         bestparser, bestperc, bestncols = None, 0., 1
         for parser in text_parsers:
             try:
@@ -123,7 +128,6 @@ class DBTruckParser(object):
         dataiter.fname = fname
         return [dataiter]
 
-
     def find_ideal_tables(self, tables):
         try:
             from pyquery import PyQuery
@@ -133,7 +137,7 @@ class DBTruckParser(object):
 
         rm = []
         for table in tables:
-            found = False        
+            found = False
             for t2 in tables:
                 if table == t2:
                     continue
@@ -229,7 +233,6 @@ class DBTruckParser(object):
             _log.info('get_from_zip_file\t%s', e)
             return []
 
-
     def get_readers_from_excel_file(self, fname, **kwargs):
         ret = []
         try:
@@ -266,16 +269,14 @@ class DBTruckParser(object):
             _log.info(traceback.format_exc())
         return ret
 
-
-    
 if __name__ == '__main__':
 
     fname = '/Users/sirrice/Desktop/lastpermissiondenied.json'
-    parser = DBTruckParser("","")
+    parser = DBTruckParser("", "")
     readers = parser.get_readers(fname)
 
     for reader in readers:
-        i = 0        
+        i = 0
         for r in reader():
             i += 1
         print i
