@@ -16,7 +16,7 @@ if __name__ == '__main__':
                         help='destination to log debug messages')
     parser.add_argument('--append', action='store_true', dest='append', default=False,
                         help='replace existing table or append to it')
-    parser.add_argument('--user', dest='user', default="sirrice",
+    parser.add_argument('--user', dest='user', default="postgres",
                         help='database user (if applicable)')
     parser.add_argument('--port', dest='port', default=5432,
                         help='database port (if applicable)')
@@ -28,6 +28,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     tablename, dbname, fnames = args.tname[0], args.dbname[0], args.fnames
+    print(tablename, dbname, fnames)
     dbuser = args.user
     dbport = args.port and int(args.port) or 5432 
     errfile = file(args.errfile, 'w')

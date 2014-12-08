@@ -14,6 +14,8 @@ class GlobalLogger(object):
         if self._logger:
             # set levels
             if fname:
+                #print("Logger handlers: " + str(map(lambda x: x.get_name(), self._logger.handlers)))
+                # stdhandler
                 fh = filter(lambda h: h.get_name() == 'filehandler',
                            self._logger.handlers)[0]
                 self._logger.removeHandler(fh)
@@ -88,6 +90,9 @@ def to_utf(v):
 
 
 def wc(fname):
+    """
+    Count number of lines in file.
+    """
     p = subprocess.Popen(['wc', '-l', fname], stdout=subprocess.PIPE)
     l = p.stdout.readline().strip()
     return int(l.split()[0])

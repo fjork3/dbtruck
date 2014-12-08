@@ -32,10 +32,11 @@ class PGMethods(BaseMethods):
     def __init__(self, *args, **kwargs):
         super(PGMethods, self).__init__(*args, **kwargs)
 
+        # get arguments from command line invocation
         self.dbname = kwargs['dbname']
         self.hostname = kwargs.get('hostname', 'localhost')
-        self.username = kwargs.get('user', '')
-        self.password = kwargs.get('password', None)
+        self.username = kwargs.get('username', '')
+        self.password = kwargs.get('password', 'postgres')
         self.port = kwargs.get('port', 0)
 
         self.dburi = kwargs.get('uri', None)
@@ -54,6 +55,9 @@ class PGMethods(BaseMethods):
         self.threshold = 10
 
     def construct_dburi(self):
+        '''
+        Construct URI for connecting to locally running postgres database.
+        '''
         dburi = ['postgresql://']
         if self.username:
             dburi.append(self.username)
@@ -68,6 +72,12 @@ class PGMethods(BaseMethods):
 
 
     def sql_create(self, types, attrs=None, new=True):
+        '''
+        Construct sql statements for dropping and creating relevant table.
+
+        @return 2-element list of SQL statements
+        '''
+
         # make up some attribute names
         types = map(BaseMethods.type2str, types)
         stmts = []
@@ -97,11 +107,16 @@ class PGMethods(BaseMethods):
                _log.info(traceback.format_exc())
 
     def get_max_id(self):
-      try:
-        res = self.engine.execute("select max(id) from %s" % self.tablename)
-        return res.fetchone()[0]
-      except:
-        return 0
+        '''
+        Query the Postgres database for the max ID of the relevant table.
+
+        @return the max, or 0 on exception (if no ID exists)
+        '''
+        try:
+            res = self.engine.execute("select max(id) from %s" % self.tablename)
+            return res.fetchone()[0]
+        except:
+            return 0
 
     def handle_error(self, errcode, col, val, row):
         """
@@ -112,7 +127,7 @@ class PGMethods(BaseMethods):
         into the queue of rows to import
 
         errors described on http://www.postgresql.org/docs/8.1/static/errcodes-appendix.html
-        @return list of rows to re-import
+        @return list of rows to re-import, or False if not enough errors to care yet
         """
         key = (errcode, col)
         self.prev_errors[key].append( (val, row) )
@@ -123,24 +138,49 @@ class PGMethods(BaseMethods):
         _log.info("handling error\t%s", key)
         vals, rows = zip(*self.prev_errors[key])            
         query = None
+        # TODO: add more errors that we can support
+        # class 22 (data exceptions) are most relevant
+        # because dbtruck is not running complex queries, should not need to handle those
+        # e.g. trim, substring errors
         if errcode in ['22003']:
             # 22003: NUMERIC VALUE OUT OF RANGE.  change to bigint
             query = "alter table %s alter %s type %s" % (self.tablename, col, 'bigint')
-        else:
-            # 22001: make column size longer
-            # 22007: change column into varchar
-            # 22P02: integer column but got string
+        else if errcode in ['22001', '22007', '22P02', '22008']:
+            # 22001 (string right truncation): make column size longer
+            # 22007 (invalid datetime): change column into varchar
+            # 22008 (datatime overflow): change to varchar
+            # 22P02 (invalid text representation): integer column but got string
+            # change schema to varchar, or lengthen to text
             newlen = max(64, max(map(len, map(to_utf, vals))) * 2)
             newtype = 'varchar(%d)' % newlen if newlen <= 1024 else 'text'
             query = "alter table %s alter %s type %s" % (self.tablename, col, newtype)
 
+        else if errcode in ['22019', '2200D', '22025', '2200C', '22P06', '2200B']:
+            # invalid escape character/sequence
+            # for now, just put in log
+            _log.info("invalid escape sequence")
 
+        else if errcode in ['42701']:
+            # duplicate column
+            # append x to the end
+            query = "alter table %s rename %s to %s" % (self.tablename, col, col + "x")
+
+        else:
+            # error that we're not actually able to handle yet
+            # write failure to log
+            _log.info("unable to handle error\t%s" % key)
+
+
+        # if we're able to fix schema errors, run a query to fix them
         if query:
-            self.engine.execute(query)
             
-            del self.prev_errors[key]
+            self.engine.execute(query)
+            # since schema changed, old errors on that row are outdated
+            del self.prev_errors[key] 
             # import the rows related to the error that we just fixed!            
             return rows
+
+        # if not, give up and return; info is in log
         return None
             
     def prepare_row_for_copy(self, row):
@@ -252,6 +292,11 @@ class PGMethods(BaseMethods):
 
 
     def import_row(self, row):
+        '''
+        Run a query to insert a single row into the relevant table.
+
+        row: 
+        '''
         try:
             args = ','.join(["%s"] * len(row))
             query = "insert into %s values (%s)" % (self.tablename, args)
