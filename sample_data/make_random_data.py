@@ -32,10 +32,10 @@ def gen(filename, nrows, ncols, primary_key=True, write_header=True, rand_errors
     with open(filename, 'w') as f:
         cols = gen_rand_cols(ncols, primary_key)
         header = [cols[i] + str(i) for i in xrange(len(cols))]
-        if write_header:
-            f.write(','.join(header) + '\n')
         print 'Header: ' + str(header) + ' (Press Enter to confirm)'
         raw_input()
+        if write_header:
+            f.write(','.join(header) + '\n')
         for i in xrange(nrows):
             if i % 1000 == 0:
                 print 'Generating row ' + str(i)
@@ -44,4 +44,4 @@ def gen(filename, nrows, ncols, primary_key=True, write_header=True, rand_errors
         f.close()
 
 if __name__ == '__main__':
-    gen("dummy1.csv", 100, 5, primary_key=True, write_header=True, rand_errors=0)
+    gen("dummy1.csv", 100, 2, primary_key=True, write_header=True, rand_errors=0)
