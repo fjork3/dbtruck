@@ -176,3 +176,46 @@ def infer_col_types(iterf):
     commons =  [c.most_common(1) for c in types]
     commons = [len(c) and (c[0][0] or str) for c in commons]
     return commons
+
+
+
+def infer_primary_key(iterf, header):
+    '''
+    Infer whether a table has a primary key field.
+    Returns the first column with all unique values.
+
+    @return index of inferred primary key field, or None if no apparent pkey
+    '''
+    # keep counter objects on values in columns
+    # if max count greater than 1, it's not a pkey
+    # TODO: restrict to types that make sense for pkey field?
+
+    counts = [Counter() for j in xrange(len(header))]
+    rowiter = iterf()
+    valid_cols = [True] * len(counts)
+
+
+    for row in rowiter:
+        # ignore non-confirming rows
+        if len(row) != len(counts):
+            continue
+
+        # if we've seen a value before, that column is invalid
+        for key, val in enumerate(row):
+            if valid_cols[key]:
+                # TODO: also needs to check for nulls
+                if val in counts[key]:
+                    # disqualify this column
+                    valid_cols[key] = False
+                else:
+                    counts[key][val] += 1
+
+        if not any(valid_cols):
+            return None
+
+    # if we still have valid pkey fields, return the first one
+    for i, h in enumerate(header):
+        if valid_cols[i]:
+            return h
+
+    return None

@@ -92,8 +92,6 @@ def transform_and_validate(types, row):
 
 
 def import_iterator(iterf, dbmethods):
-  """
-  """
   # this function could dynamically increase or decrease the block
   rowiter = iterf()
   types = iterf.types

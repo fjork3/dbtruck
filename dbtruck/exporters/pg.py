@@ -300,8 +300,6 @@ class PGMethods(BaseMethods):
     def import_row(self, row):
         '''
         Run a query to insert a single row into the relevant table.
-
-        row: 
         '''
         try:
             args = ','.join(["%s"] * len(row))
