@@ -38,11 +38,11 @@ def file_iterators(fnames, parser=None, **kwargs):
 
 def import_datafiles(fnames, new, tablename, errfile, exportmethodsklass, parser=None, **kwargs):
   """
-  Parse 
+  Parse
 
   Args:
     fnames: file names of files to parse and import
-    new: drop table(s) before importing? 
+    new: drop table(s) before importing?
     tablename: prefix of table to import into
     errfile:
     exportmethodsklass: static class containing export methods
@@ -57,20 +57,20 @@ def import_datafiles(fnames, new, tablename, errfile, exportmethodsklass, parser
     new_errfile = True
 
   try:
+    exportmethods = exportmethodsklass(tablename, errfile, **kwargs)
     for idx, iterf in enumerate(iterfs):
       try:
         # for tables beyond the first, the tablename should include an index
         # to distinguish different tables
         if (idx != 0):
-          tablename += str(idx)
-        exportmethods = exportmethodsklass(tablename, errfile, **kwargs)
+          new_tablename = tablename + str(idx)
 
-        # newtable = new and idx == 0
+        exportmethodsklass.tablename = new_tablename
         exportmethods.setup_table(iterf.types, iterf.header, new)
         import_iterator(iterf, exportmethods)
 
-        idx += 1 # this is so failed tables can be reused
-      except Exception as e:
+        idx += 1  # this is so failed tables can be reused
+      except Exception:
         _log.warn(traceback.format_exc())
 
     if new_errfile:
@@ -87,7 +87,7 @@ def transform_and_validate(types, row):
   # if reduce(lambda a,b: a and b, val):
   #     return row
   # return None
-  
+
 
 def import_iterator(iterf, dbmethods):
   """
@@ -127,9 +127,6 @@ def import_iterator(iterf, dbmethods):
   if len(buf) > 0:
     try:
       success = dbmethods.import_block(buf, iterf)
-      _log.info( "loaded\t%s\t%d", success, rowidx )
+      _log.info("loaded\t%s\t%d", success, rowidx)
     except Exception as e:
       _log.warn(traceback.format_exc())
-    
-
-
