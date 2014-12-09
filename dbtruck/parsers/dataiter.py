@@ -20,6 +20,7 @@ class DataIterator(object):
         self.header_inferred = False
         self.add_id_col = False
         self.types = None
+        self.pkey = None  # the name of the column that represents a primary key in this table
         # Add any kwargs as class attribues
         self.__dict__.update(kwargs)
 
@@ -30,13 +31,9 @@ class DataIterator(object):
 
         self.infer_header()
 
-        # TODO: make exporter recognize this row
-        print("Inferring primary key!")
-        if not infer_primary_key(self, self.header):
-            print("no header found")
+        self.pkey = infer_primary_key(self, self.header)
+        if not self.pkey:
             self.insert_id_col()
-
-
 
         _log.info('types:\t%s', ' '.join(map(str, self.types)))
         _log.info('headers:\t%s', ' '.join(self.header))

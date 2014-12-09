@@ -16,7 +16,7 @@ class CSVMethods(BaseMethods):
         self.writer = None
         self.header = None
 
-    def setup_table(self, types, header, new=False):
+    def setup_table(self, types, header, new=False, pkey=None):
         '''
         Prepare for CSV output. Creates a new file with the same name as the table,
         or appends to it if the file already exists in the output directory.

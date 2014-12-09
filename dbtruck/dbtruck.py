@@ -68,7 +68,8 @@ def import_datafiles(fnames, new, tablename, errfile, exportmethodsklass, parser
           new_tablename = tablename
 
         exportmethodsklass.tablename = new_tablename
-        exportmethods.setup_table(iterf.types, iterf.header, new)
+        print "primary key:",iterf.pkey
+        exportmethods.setup_table(iterf.types, iterf.header, new, iterf.pkey)
         import_iterator(iterf, exportmethods)
 
         idx += 1  # this is so failed tables can be reused
