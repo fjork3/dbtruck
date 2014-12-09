@@ -9,6 +9,7 @@ import time
 import re
 import pdb
 import traceback
+import getpass
 
 sys.path.append('..')
 sys.path.append( os.path.abspath(os.path.dirname(__file__)) )
@@ -36,7 +37,11 @@ class PGMethods(BaseMethods):
         self.dbname = kwargs['dbname']
         self.hostname = kwargs.get('hostname', 'localhost')
         self.username = kwargs.get('username', '')
-        self.password = kwargs.get('password', 'postgres')
+        try:
+            self.password
+        except AttributeError:
+            self.password = getpass.getpass("psql password: ")
+        #self.password = kwargs.get('password', 'postgres')
 
         self.port = kwargs.get('port', 0)
 
