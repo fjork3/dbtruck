@@ -58,6 +58,7 @@ class DataIterator(object):
         if len(self.header) < len(self.types):
             for i in xrange(len(self.types) - len(self.header)):
                 self.header.append('attr%d' % i)
+                # TODO: Why is self.types not appended to?
 
         # trim extra columns
         self.header = self.header[:len(self.types)]
@@ -95,7 +96,8 @@ class DataIterator(object):
             # lots of more complex analysis goes HERE
             self.header = header
             self.header_inferred = True
-        except:
+        except Exception as e:
+            _log.info("could not infer header row: " + str(e));
             return
 
     def clean_header(self):

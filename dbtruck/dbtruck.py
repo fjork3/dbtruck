@@ -82,6 +82,7 @@ def import_datafiles(fnames, new, tablename, errfile, exportmethodsklass, parser
 def transform_and_validate(types, row):
   row = map(str2sqlval, zip(types, row))
   return row
+  # TODO: can we make this more efficient and run it
   # The following code turned out to be too expensive to run
   # val = map(validate_type, zip(types, row))
   # if reduce(lambda a,b: a and b, val):
