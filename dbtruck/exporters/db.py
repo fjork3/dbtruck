@@ -1,6 +1,12 @@
 import psycopg2
 import sys
 
+'''
+Helper methods for interfacing with Postgres DB.
+'''
+
+
+
 def connect(dbname):
     try:
         connection = "dbname='%s' user='sirrice' port='5432'" % (dbname)

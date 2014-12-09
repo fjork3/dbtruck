@@ -29,6 +29,15 @@ class DataIterator(object):
             self.types = infer_col_types(self)
 
         self.infer_header()
+
+        # TODO: make exporter recognize this row
+        print("Inferring primary key!")
+        if not infer_primary_key(self, self.header):
+            print("no header found")
+            self.insert_id_col()
+
+
+
         _log.info('types:\t%s', ' '.join(map(str, self.types)))
         _log.info('headers:\t%s', ' '.join(self.header))
 
@@ -62,15 +71,19 @@ class DataIterator(object):
 
         # trim extra columns
         self.header = self.header[:len(self.types)]
+       
 
-        # we _always_ need an ID column
+    def insert_id_col(self):
         if 'id' not in self.header:
             self.header.append('id')
             self.add_id_col = True
             self.types.append(int)
 
+
     def infer_header_row(self):
-        "analyze first row in iterator and check if it looks like a header"
+        '''
+        Analyze first row in iterator and check if it looks like a header.
+        '''
 
         types = self.types
 

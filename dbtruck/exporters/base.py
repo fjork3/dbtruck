@@ -1,6 +1,9 @@
 import datetime
 
 class BaseMethods(object):
+    '''
+    Superclass for all exporter objects. Should not be instantiated directly.
+    '''
     
     def __init__(self, tablename, errfile, **kwargs):
         self.tablename = tablename
