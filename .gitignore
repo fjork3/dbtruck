@@ -3,3 +3,4 @@ build/*
 dbtruck.egg-info/*
 dist/*
 log.txt
+sample_data/large*
