@@ -64,6 +64,8 @@ def import_datafiles(fnames, new, tablename, errfile, exportmethodsklass, parser
         # to distinguish different tables
         if (idx != 0):
           new_tablename = tablename + str(idx)
+        else:
+          new_tablename = tablename
 
         exportmethodsklass.tablename = new_tablename
         exportmethods.setup_table(iterf.types, iterf.header, new)
