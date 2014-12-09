@@ -146,7 +146,7 @@ class PGMethods(BaseMethods):
         if errcode in ['22003']:
             # 22003: NUMERIC VALUE OUT OF RANGE.  change to bigint
             query = "alter table %s alter %s type %s" % (self.tablename, col, 'bigint')
-        else if errcode in ['22001', '22007', '22P02', '22008']:
+        elif errcode in ['22001', '22007', '22P02', '22008']:
             # 22001 (string right truncation): make column size longer
             # 22007 (invalid datetime): change column into varchar
             # 22008 (datatime overflow): change to varchar
@@ -156,12 +156,12 @@ class PGMethods(BaseMethods):
             newtype = 'varchar(%d)' % newlen if newlen <= 1024 else 'text'
             query = "alter table %s alter %s type %s" % (self.tablename, col, newtype)
 
-        else if errcode in ['22019', '2200D', '22025', '2200C', '22P06', '2200B']:
+        elif errcode in ['22019', '2200D', '22025', '2200C', '22P06', '2200B']:
             # invalid escape character/sequence
             # for now, just put in log
             _log.info("invalid escape sequence")
 
-        else if errcode in ['42701']:
+        elif errcode in ['42701']:
             # duplicate column
             # append x to the end
             query = "alter table %s rename %s to %s" % (self.tablename, col, col + "x")
