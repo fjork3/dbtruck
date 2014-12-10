@@ -17,7 +17,7 @@ def gen_rand(i, t, rand_errors):
     if random.random() < rand_errors:
         return ''
     if t=='str':
-        return ''.join([random.choice(c) for i in xrange(random.randint(1, 1000))])
+        return ''.join([random.choice(c) for i in xrange(random.randint(1, 5))])
     elif t=='int':
         return str(random.randint(1, 1000000))
     elif t=='float':
@@ -32,6 +32,8 @@ def gen(filename, nrows, ncols, primary_key=True, write_header=True, rand_errors
     with open(filename, 'w') as f:
         cols = gen_rand_cols(ncols, primary_key)
         header = [cols[i] + str(i) for i in xrange(len(cols))]
+        if primary_key:
+            header[0] = 'is_an_id'
         print 'Header: ' + str(header) + ' (Press Enter to confirm)'
         raw_input()
         if write_header:
@@ -44,4 +46,4 @@ def gen(filename, nrows, ncols, primary_key=True, write_header=True, rand_errors
         f.close()
 
 if __name__ == '__main__':
-    gen("dummy1.csv", 100, 2, primary_key=True, write_header=True, rand_errors=0)
+    gen("dummy1.csv", 10000, 5, primary_key=True, write_header=True, rand_errors=0)

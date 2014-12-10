@@ -153,8 +153,24 @@ def infer_col_types(iterf):
         # otherwise, look at the first 1000 rows and pick the most common length
         rowiter = iterf()
         rowiter.next()
-        counter = Counter(len(rowiter.next()) for i in xrange(1000))
-        bestrowlen = counter.most_common(1)[0][0]
+        bestrowlen = 0
+        secondbest = 0
+        stddev = 0
+        numread = 0
+        avg = 0
+        var = 0
+        while abs(secondbest - bestrowlen) <= 2*math.sqrt(var) and numread < 10000:
+            counter = Counter(len(rowiter.next()) for i in xrange(1000))
+            rowlens = counter.most_common()
+            newsum = sum([x[1] for x in rowlens])
+            newvar = sum([(x[1] - newsum/len(rowlens))**2 for x in rowlens]) / len(rowlens)
+            var = (numread*var + len(rowlens)*newvar) / (numread + len(rowlens)) - (numread * len(rowlens)) / ((numread + len(rowlens))**2) * ((avg - newsum/len(rowlens))**2)
+            avg = (numread*avg + newsum) / (numread + len(rowlens))
+            numread += len(rowlens)
+            if len(rowlens) > 0:
+                bestrowlen = rowlens[0][0]
+            if len(rowlens) > 1:
+                secondbest = rowlens[1][0]
         types = [Counter() for j in xrange(bestrowlen)]
 
 
