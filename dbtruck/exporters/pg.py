@@ -77,7 +77,7 @@ class PGMethods(BaseMethods):
         return ''.join(dburi)
 
 
-    def sql_create(self, types, attrs=None, new=True):
+    def sql_create(self, types, attrs=None, new=True, pkey='id'):
         '''
         Construct sql statements for dropping and creating relevant table.
 
@@ -91,9 +91,15 @@ class PGMethods(BaseMethods):
             cols = []
             for attr, t in zip(attrs, types):
                 if attr == 'id':
-                    cols.append('id serial unique')
+                    colname = 'id serial unique'
                 else:
-                    cols.append('%s %s null' % (attr, t))
+                    colname = '%s %s' % (attr, t)
+
+                if attr == pkey:
+                    colname += ' primary key'
+                else:
+                    colname += ' null'
+                cols.append(colname)
 
             drop = 'drop table %s cascade;' % self.tablename
             create = 'create table %s (%s);' % (self.tablename, ', \n'.join(cols))            
@@ -104,8 +110,8 @@ class PGMethods(BaseMethods):
         self.attribute = attrs
         return stmts
 
-    def setup_table(self, types, header, new):
-        stmts = self.sql_create(types, attrs=header, new=new)    
+    def setup_table(self, types, header, new, pkey):
+        stmts = self.sql_create(types, attrs=header, new=new, pkey=pkey)    
         for stmt in stmts:
            try:
                self.engine.execute(stmt)

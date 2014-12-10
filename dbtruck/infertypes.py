@@ -195,12 +195,12 @@ def infer_col_types(iterf):
 
 
 
-def infer_primary_key(iterf, header):
+def infer_primary_key(iterf, header, types):
     '''
     Infer whether a table has a primary key field.
     Returns the first column with all unique values.
 
-    @return index of inferred primary key field, or None if no apparent pkey
+    @return name of inferred primary key field, or None if no apparent pkey
     '''
     # keep counter objects on values in columns
     # if max count greater than 1, it's not a pkey
@@ -230,6 +230,11 @@ def infer_primary_key(iterf, header):
             return None
 
     # if we still have valid pkey fields, return the first one
+    # prefer integer fields
+    for i, h in enumerate(header):
+        if (valid_cols[i]) and (types[i] == int):
+            return h
+
     for i, h in enumerate(header):
         if valid_cols[i]:
             return h

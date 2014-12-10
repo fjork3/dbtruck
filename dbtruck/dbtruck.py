@@ -7,6 +7,7 @@ import logging
 import re
 import time
 import pdb
+import getpass
 moduledir = os.path.abspath(os.path.dirname(__file__)) 
 sys.path.append( moduledir )
 
@@ -57,6 +58,13 @@ def import_datafiles(fnames, new, tablename, errfile, exportmethodsklass, parser
     new_errfile = True
 
   try:
+
+    # for Postgres interface, we need to get the password
+    #if exportmethodsklass == PGMethods:
+    #pgpass = getpass.getpass("psql password (if exporting to Postgres): ")
+    #kwargs['pgpass'] = pgpass
+
+
     exportmethods = exportmethodsklass(tablename, errfile, **kwargs)
     for idx, iterf in enumerate(iterfs):
       try:
@@ -67,11 +75,10 @@ def import_datafiles(fnames, new, tablename, errfile, exportmethodsklass, parser
         else:
           new_tablename = tablename
 
-        exportmethodsklass.tablename = new_tablename
-        exportmethods.setup_table(iterf.types, iterf.header, new)
+        exportmethods.tablename = new_tablename
+        exportmethods.setup_table(iterf.types, iterf.header, new, iterf.pkey)
         import_iterator(iterf, exportmethods)
 
-        idx += 1  # this is so failed tables can be reused
       except Exception:
         _log.warn(traceback.format_exc())
 
@@ -93,12 +100,20 @@ def transform_and_validate(types, row):
 
 
 def import_iterator(iterf, dbmethods):
+  '''
+  Takes a file iterator and a DBMethods class, and passes the file
+  to the appropriate exporter in blocks.
+
+
+  '''
+
   # this function could dynamically increase or decrease the block
   rowiter = iterf()
   types = iterf.types
   blocksize = 100000
   buf = []
 
+  # if the file has a header row, skip it when trying to import
   if iterf.header_inferred:
     rowiter.next()
 
@@ -131,3 +146,7 @@ def import_iterator(iterf, dbmethods):
       _log.info("loaded\t%s\t%d", success, rowidx)
     except Exception as e:
       _log.warn(traceback.format_exc())
+
+
+
+
