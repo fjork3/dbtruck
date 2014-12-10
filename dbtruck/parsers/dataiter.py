@@ -31,9 +31,13 @@ class DataIterator(object):
 
         self.infer_header()
 
-        self.pkey = infer_primary_key(self, self.header)
+
+        # see if any columns could be a primary key
+        # if not, auto-generate a new one
+        self.pkey = infer_primary_key(self, self.header, self.types)
         if not self.pkey:
             self.insert_id_col()
+            self.pkey = 'id'
 
         _log.info('types:\t%s', ' '.join(map(str, self.types)))
         _log.info('headers:\t%s', ' '.join(self.header))
@@ -43,10 +47,11 @@ class DataIterator(object):
         validate, infer/generate a header for this iterator
         """
 
-        # if all things fail, we can always make up headers!
         try:
+            # if we think we already have a header, make sure it makes sense
             self.validate_header()
 
+            # if we didn't have one or it was wrong, try to read from file
             if not self.header:
                 self.infer_header_row()
 
@@ -54,8 +59,7 @@ class DataIterator(object):
         except:
             pass
 
-        # if we didn't find a header row, then lets default to
-        # generating one
+        # if we didn't find a header row, then make one up
         if not self.header:
             self.header_inferred = False
             self.header = ['attr%d' % i for i in xrange(len(self.types))]
@@ -71,6 +75,11 @@ class DataIterator(object):
        
 
     def insert_id_col(self):
+        '''
+        Add an integer column designated as the ID (and primary key).
+        Sets add_id_col, to be treated as pkey by exporter.
+        '''
+
         if 'id' not in self.header:
             self.header.append('id')
             self.add_id_col = True
@@ -98,12 +107,12 @@ class DataIterator(object):
             if matches > 0:
                 return
 
+            # if header name too long, we can't use this header
             if max(map(len, header)) > 100:
                 _.log.warn("header colname longer than 100: %s", max(map(len, header)))
                 return
 
             # TODO more analysis?
-            # lots of more complex analysis goes HERE
             self.header = header
             self.header_inferred = True
         except Exception as e:
