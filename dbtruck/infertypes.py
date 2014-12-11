@@ -13,13 +13,13 @@ from dateutil.parser import parse as dateparse
 re_null_chars = re.compile('[\*\.\?-_]+')
 re_num_bad_chars = re.compile('[\,\$\@\#\*]')
 
-bool_true_values = ['TRUE', 't', 'y', 'yes', 'on']
+bool_true_values = ['TRUE', 't', 'true', 'y', 'yes', 'on']
 bool_false_values = ['FALSE', 'f', 'false', 'n', 'no', 'off']
 
 def get_type(val):
     '''
     Determine the data type of a single value.
-    Check in order int, float, data, then default to string if none match.
+    Check in order int, float, date, then default to string if none match.
     '''
     if not isinstance(val, basestring):
         return type(val)
@@ -151,6 +151,8 @@ def infer_col_types(iterf):
         types = [Counter() for j in xrange(len(iterf.header))]
     else:
         # otherwise, look at the first 1000 rows and pick the most common length
+        import time
+        b = time.time()
         rowiter = iterf()
         rowiter.next()
         bestrowlen = 0
@@ -172,25 +174,40 @@ def infer_col_types(iterf):
             if len(rowlens) > 1:
                 secondbest = rowlens[1][0]
         types = [Counter() for j in xrange(bestrowlen)]
-
+        e = time.time()
+        print 'inferring row len', b, e, e-b
 
     # iterate through rows (up to the first 5000 with the same length)
+    b = time.time()
     rowiter = iterf()
-    linenum = 0        
-    for row in rowiter:
-        if len(row) != len(types):
-            continue
+    allcertain = False
+    numread = 0
+    while not allcertain and numread < 10000:
+        linenum = 0
+        for row in rowiter:
+            if len(row) != len(types):
+                continue
+
+            for key, val in enumerate(row):
+                t = get_type(val)
+                if t is not None:
+                    types[key][t] += 1
+            linenum += 1
+            if linenum >= 1000:
+                break
+        commons = [c.most_common() for c in types]
+        # there are 4 types: int, float, date, string
+        avgs = [sum([x[1] for x in col])/4 for col in commons]
+        variances = [(sum([(x[1] - avgs[i])**2 for x in commons[i]]) + (4 - len(commons[i])) * avgs[i]**2) / 4 for i in xrange(len(commons))]
+        numread += linenum
+        certains = [abs(commons[i][0][1] - avgs[i]) > 1.5*math.sqrt(variances[i]) for i in xrange(len(commons))]
+        allcertain = all(certains)
         
-        for key, val in enumerate(row):
-            t = get_type(val)
-            if t is not None: 
-                types[key][t] += 1
-        linenum += 1
-        if linenum > 5000:
-            break
     # read off most common type from each column counter (type, count)
-    commons =  [c.most_common(1) for c in types]
+    #commons =  [c.most_common(1) for c in types]
     commons = [len(c) and (c[0][0] or str) for c in commons]
+    e = time.time()
+    print 'inferring data types', b, e, e-b
     return commons
 
 
